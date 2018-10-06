@@ -1,0 +1,184 @@
+---
+title: "Healthy test in Pittsburgh Flex Dashboard"
+date: "September 20, 2018"
+runtime: shiny
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: row
+    vertical_layout: fill
+    theme: sandstone
+    favicon: favicon.png
+---
+
+```{r setup, include=FALSE}
+#require packages
+library(flexdashboard)
+library(shiny)
+library(dplyr)
+library(plotly)
+library(reshape2)
+library(shinythemes)
+library(tibble)
+
+#input data
+test<- read.csv(file="C:/Users/csvan/Documents/GitHub/hw4/test.csv", header=TRUE, sep=",")
+
+#data cleaning
+test$Starttime <- NULL
+test$Stoptime <- NULL
+test$From.station.id <- NULL
+test$To.station.id <- NULL
+test$From.station.name <- NULL
+test$To.station.name <- NULL
+
+test <- test%>%
+  mutate(Tripduration = as.numeric(Tripduration),
+         Usertype = as.factor(Usertype),
+         Bikeid= as.factor(Bikeid))
+
+testInput <- reactive({
+  test.filter <- test %>%
+    #slider tripduration filter
+    filter(Tripduration >= input$TripdurationSelect[1] & Tripduration <= input$TripdurationSelect[2])
+  #selecting bikeid filter 
+  if (length(input$BikeidSelect) > 0 ) {
+    test.filter <- subset(test.filter, Bikeid %in% input$BikeidSelect)
+  }
+  #check box usertype Filter
+  if (length(input$UserSelect)>0) {
+  test.filter <- subset(test.filter, Usertype%in%input$UserSelect)
+  }
+  return(test.filter)
+})
+
+
+pdf(NULL)
+```
+
+Sidebar {.sidebar}
+=====================================
+
+```{r}
+sliderInput("TripdurationSelect",
+            "Trip Duration:",
+            min = min(test$Tripduration, na.rm = T),
+            max = max(test$Tripduration, na.rm = T),
+            value = c("80", "151106"),
+            step = 1)
+selectInput("BikeidSelect",
+               "Bike ID:",
+               choices = sort(unique(test$Bikeid)),
+               multiple = TRUE,
+               selectize = TRUE,
+               selected = c("70043", "70000","70007","70245","70063"))
+
+checkboxGroupInput("UserSelect",
+                   "User Type:",
+                   choices = sort(unique(test$Usertype)),
+                   selected = c("Customer","Subscriber"))
+
+```
+
+Bike and Tripduration
+=====================================
+
+Row 
+-------------------------------------
+
+###
+
+```{r}
+renderGauge({
+  rate <- round(as.numeric(length(input$BikeidSelect)) / length(unique(test$Bikeid))*100, 1)
+  gauge(rate,min=0.0003,max=100,symbol = "%")
+})
+```
+
+###
+
+```{r}
+renderValueBox({
+  rd <- testInput()
+  num <- round(mean(rd$Tripduration, na.rm = T), 2)
+  valueBox(caption = "Average Trip Duration", value = num, icon = "fa-sort-numeric-asc", color = "success")
+})
+```
+
+### Bike Selected
+
+```{r}
+renderGauge({
+  rate <- round(as.numeric(length(input$UserSelect)) / length(unique(test$Usertype))*100, 1)
+  gauge(rate,min=0.0003,max=100,symbol = "%")
+})
+```
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+### The number of using Bike 
+
+```{r}
+renderPlotly({
+    dat <- testInput()
+    ggplotly(
+      ggplot(data = dat, aes(x = Bikeid,fill=Bikeid))+
+        geom_bar()+
+        coord_flip())
+  })
+```
+
+### Bike & Tripduration
+
+```{r}
+renderPlotly({
+    dat <- testInput()
+    ggplotly(
+      ggplot(data = dat, aes(x = Bikeid, y = Tripduration))+geom_boxplot())})
+```
+
+
+Usertype of Bike
+=====================================
+### Usertype & Bike
+```{r}
+renderPlotly({
+  dat <- testInput()
+  ggplotly(
+    ggplot(data = dat, aes(x = Usertype,fill=Bikeid))+geom_bar())})
+```
+
+
+Table
+=====================================
+
+Row 
+-------------------------------------
+
+### Table 
+
+```{r}
+DT::renderDataTable({
+  test.filter<- testInput()
+  subset(test.filter,select =c(Trip.id,Usertype,Tripduration,Bikeid))
+})
+```
+
+Row
+-------------------------------------
+
+
+```{r}
+library(shiny)
+
+ui <- fluidPage(
+  
+)
+
+server <- function(input, output, session) {
+  
+}
+
+shinyApp(ui, server)
+```
+
