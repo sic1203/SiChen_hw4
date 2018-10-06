@@ -1,6 +1,6 @@
 ---
 title: "Healthy test in Pittsburgh Flex Dashboard"
-date: "September 20, 2018"
+date: "October 5, 2018"
 runtime: shiny
 output: 
   flexdashboard::flex_dashboard:
@@ -19,62 +19,93 @@ library(plotly)
 library(reshape2)
 library(shinythemes)
 library(tibble)
+library(httr)
+library(jsonlite)
+```
 
-#input data
-test<- read.csv(file="C:/Users/csvan/Documents/GitHub/hw4/test.csv", header=TRUE, sep=",")
+```{r}
+ckanSQL <- function(url) {
+  # Make the Request
+  r <- RETRY("GET", URLencode(url))
+  # Extract Content
+  c <- content(r, "text")
+  # Basic gsub to make NA's consistent with R
+  json <- gsub('NaN', 'NA', c, perl = TRUE)
+  # Create Dataframe
+  data.frame(jsonlite::fromJSON(json)$result$records)
+}
+```
 
-#data cleaning
-test$Starttime <- NULL
-test$Stoptime <- NULL
-test$From.station.id <- NULL
-test$To.station.id <- NULL
-test$From.station.name <- NULL
-test$To.station.name <- NULL
+```{r}
+# Unique values for Resource Field
+ckanUniques <- function(id, field) {
+  url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20DISTINCT(%22", field, "%22)%20from%20%22", id, "%22")
+  c(ckanSQL(URLencode(url)))
+}
 
-test <- test%>%
+#retrieve unique values for each column
+Bk <- sort(ckanUniques("030d12a3-fda6-4f2c-a508-ff23a4ecf195", "Bikeid")$Bikeid)
+Bk<-as.factor(Bk)
+Ur <-sort(ckanUniques("030d12a3-fda6-4f2c-a508-ff23a4ecf195", "Usertype")$Usertype)
+Ur<-as.factor(Ur)
+Tp <- sort(ckanUniques("030d12a3-fda6-4f2c-a508-ff23a4ecf195", "Tripduration")$Tripduration) 
+
+#set Tp to numeric for sliderbar input
+Tp<- as.numeric(Tp)
+```
+
+
+
+```{r}
+#clean data
+ride <- ride%>%
   mutate(Tripduration = as.numeric(Tripduration),
-         Usertype = as.factor(Usertype),
+         # Usertype = as.factor(Usertype),
          Bikeid= as.factor(Bikeid))
 
-testInput <- reactive({
-  test.filter <- test %>%
+rideInput <- reactive({
+  ridefilter <- ride %>%
     #slider tripduration filter
     filter(Tripduration >= input$TripdurationSelect[1] & Tripduration <= input$TripdurationSelect[2])
   #selecting bikeid filter 
   if (length(input$BikeidSelect) > 0 ) {
-    test.filter <- subset(test.filter, Bikeid %in% input$BikeidSelect)
+    ridefilter <- subset(ridefilter, Bikeid %in% input$BikeidSelect)
   }
   #check box usertype Filter
-  if (length(input$UserSelect)>0) {
-  test.filter <- subset(test.filter, Usertype%in%input$UserSelect)
+  if (length(input$UserSelect) >0 ){
+    ridefilter <- subset(ridefilter, Usertype%in%input$UserSelect)
   }
-  return(test.filter)
+  return(ridefilter)
 })
 
-
 pdf(NULL)
+
 ```
 
 Sidebar {.sidebar}
 =====================================
 
 ```{r}
+#sliderinput for tripduration
 sliderInput("TripdurationSelect",
             "Trip Duration:",
-            min = min(test$Tripduration, na.rm = T),
-            max = max(test$Tripduration, na.rm = T),
+            min = min(Tp, na.rm = T),
+            max = max(Tp, na.rm = T),
             value = c("80", "151106"),
             step = 1)
+
+#selectinput for selecting bike
 selectInput("BikeidSelect",
                "Bike ID:",
-               choices = sort(unique(test$Bikeid)),
+               choices = Bk,
                multiple = TRUE,
                selectize = TRUE,
                selected = c("70043", "70000","70007","70245","70063"))
 
+#checkbox input for user gropu selection 
 checkboxGroupInput("UserSelect",
                    "User Type:",
-                   choices = sort(unique(test$Usertype)),
+                   choices = Ur,
                    selected = c("Customer","Subscriber"))
 
 ```
@@ -85,42 +116,42 @@ Bike and Tripduration
 Row 
 -------------------------------------
 
-###
+###Bike Selected
 
 ```{r}
 renderGauge({
-  rate <- round(as.numeric(length(input$BikeidSelect)) / length(unique(test$Bikeid))*100, 1)
+  rate <- round(as.numeric(length(input$BikeidSelect)) / length(Bk)*100, 1)
   gauge(rate,min=0.0003,max=100,symbol = "%")
 })
 ```
 
-###
+###Tripduration Distribution
 
 ```{r}
 renderValueBox({
-  rd <- testInput()
+  rd <- rideInput()
   num <- round(mean(rd$Tripduration, na.rm = T), 2)
   valueBox(caption = "Average Trip Duration", value = num, icon = "fa-sort-numeric-asc", color = "success")
 })
 ```
 
-### Bike Selected
+### User Group Selected
 
 ```{r}
 renderGauge({
-  rate <- round(as.numeric(length(input$UserSelect)) / length(unique(test$Usertype))*100, 1)
-  gauge(rate,min=0.0003,max=100,symbol = "%")
+  rate <- round(as.numeric(length(input$UserSelect)) / length(Ur)*100, 1)
+  gauge(rate,min=0,max=100,symbol = "%")
 })
 ```
 
 Row {.tabset .tabset-fade}
 -------------------------------------
 
-### The number of using Bike 
+### The amount of Bike 
 
 ```{r}
 renderPlotly({
-    dat <- testInput()
+    dat <- rideInput()
     ggplotly(
       ggplot(data = dat, aes(x = Bikeid,fill=Bikeid))+
         geom_bar()+
@@ -128,26 +159,25 @@ renderPlotly({
   })
 ```
 
-### Bike & Tripduration
+### Tripduration of Bike
 
 ```{r}
 renderPlotly({
-    dat <- testInput()
+    dat <- rideInput()
     ggplotly(
       ggplot(data = dat, aes(x = Bikeid, y = Tripduration))+geom_boxplot())})
 ```
 
-
 Usertype of Bike
 =====================================
-### Usertype & Bike
+
+### Number of bikes in different User group
 ```{r}
 renderPlotly({
-  dat <- testInput()
+  dat <- rideInput()
   ggplotly(
     ggplot(data = dat, aes(x = Usertype,fill=Bikeid))+geom_bar())})
 ```
-
 
 Table
 =====================================
@@ -159,8 +189,8 @@ Row
 
 ```{r}
 DT::renderDataTable({
-  test.filter<- testInput()
-  subset(test.filter,select =c(Trip.id,Usertype,Tripduration,Bikeid))
+  ridefilter<- rideInput()
+  subset(ridefilter,select =c(Usertype,Tripduration,Bikeid))
 })
 ```
 
