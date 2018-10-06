@@ -64,8 +64,8 @@ ckanAll <- function(id, field){
 #Retrieve all field values 
 Bikeid<- sort(ckanAll("030d12a3-fda6-4f2c-a508-ff23a4ecf195", "Bikeid")$Bikeid)
 Bikeid<-as.factor(Bikeid)
-Usertype <-sort(ckanAll("030d12a3-fda6-4f2c-a508-ff23a4ecf195", "Usertype")$Usertype)
-# Usertype<-as.factor(Usertype)
+Usertype <-ckanAll("030d12a3-fda6-4f2c-a508-ff23a4ecf195", "Usertype")$Usertype
+Usertype<-as.factor(Usertype)
 Tripduration<-sort(ckanAll("030d12a3-fda6-4f2c-a508-ff23a4ecf195", "Tripduration")$Tripduration)
 
 #Tripduration is numeric 
