@@ -1,0 +1,12 @@
+name: SiChenProject_update
+title: SiChenProject_update
+username:
+account: sichen1203
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 497374
+bundleId: 1626750
+url: https://sichen1203.shinyapps.io/SiChenProject_update/
+when: 1538835669.6277
+asMultiple: FALSE
+asStatic: FALSE
