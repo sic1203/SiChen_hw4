@@ -54,7 +54,26 @@ Tp <- sort(ckanUniques("030d12a3-fda6-4f2c-a508-ff23a4ecf195", "Tripduration")$T
 Tp<- as.numeric(Tp)
 ```
 
+```{r}
+#Retrieve all value for Resouce Field
+ckanAll <- function(id, field){
+  url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20(%22", field, "%22)%20from%20%22", id, "%22")
+  c(ckanSQL(URLencode(url)))
+}
 
+#Retrieve all field values 
+Bikeid<- sort(ckanAll("030d12a3-fda6-4f2c-a508-ff23a4ecf195", "Bikeid")$Bikeid)
+Bikeid<-as.factor(Bikeid)
+Usertype <-sort(ckanAll("030d12a3-fda6-4f2c-a508-ff23a4ecf195", "Usertype")$Usertype)
+# Usertype<-as.factor(Usertype)
+Tripduration<-sort(ckanAll("030d12a3-fda6-4f2c-a508-ff23a4ecf195", "Tripduration")$Tripduration)
+
+#Tripduration is numeric 
+Tripduration <- as.numeric(Tripduration)
+
+#Combine select filed into a new datatable
+ride <- data.frame(Bikeid,Tripduration,Usertype)
+```
 
 ```{r}
 #clean data
